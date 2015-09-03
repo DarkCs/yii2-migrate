@@ -5,6 +5,7 @@ namespace darkcs\migrate\controllers;
 use Yii;
 use yii\db\Query;
 use yii\helpers\ArrayHelper;
+use yii\helpers\FileHelper;
 
 /**
  * Class MigrateController
@@ -18,6 +19,14 @@ class MigrateController extends \yii\console\controllers\MigrateController
     public $migrationPaths = [];
 
     private $migrationPathsCache = null;
+
+    public function options($actionID)
+    {
+        return array_merge(
+            parent::options($actionID),
+            ['migrationPaths']
+        );
+    }
 
     /**
      * @inheritdoc
@@ -96,11 +105,13 @@ class MigrateController extends \yii\console\controllers\MigrateController
             return $this->migrationPathsCache;
         }
 
-        $paths = ArrayHelper::merge([$this->migrationPath], $this->migrationPaths);
+        $paths = ArrayHelper::merge([$this->migrationPath], (array)$this->migrationPaths);
         $migrations = [];
+
 
         foreach ($paths as $path) {
             $dir = Yii::getAlias($path);
+
             if (!is_dir($dir)) {
                 continue;
             }
@@ -109,7 +120,7 @@ class MigrateController extends \yii\console\controllers\MigrateController
                 if ($file === '.' || $file === '..') {
                     continue;
                 }
-                $filePath = $dir . DIRECTORY_SEPARATOR . $file;
+                $filePath = FileHelper::normalizePath($dir . DIRECTORY_SEPARATOR . $file);
                 if (preg_match('/^(m(\d{6}_\d{6})_.*?)\.php$/', $file, $matches) && is_file($filePath)) {
                     $migrations[$file] = $filePath;
                 }
@@ -202,7 +213,10 @@ class MigrateController extends \yii\console\controllers\MigrateController
 
         $pathHistory = [];
         foreach ($history as $class => $timestamp) {
-            $pathHistory[$this->getPathFromClass($class)] = $timestamp;
+            $path = $this->getPathFromClass($class);
+            if ($path) {
+                $pathHistory[$path] = $timestamp;
+            }
         }
 
         return $pathHistory;
